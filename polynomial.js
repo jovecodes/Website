@@ -32,6 +32,14 @@ class Lexer {
                 token += this.text[this.index];
                 this.index += 1;
             }
+            while (this.has_more() && this.text[this.index] == ' ')  {
+                this.index += 1;
+            }
+            if (this.has_more() && is_num.test(this.text[this.index])) {
+                this.tokens.push(token);
+                this.tokens.push("^");
+                return true;
+            }
         } else if (is_num.test(this.text[this.index])) {
             while (is_num.test(this.text[this.index])) {
                 token += this.text[this.index];
@@ -312,6 +320,7 @@ function simplify() {
 
     let lexer = new Lexer(equation.value);
     let tokens = lexer.tokenize();
+    console.log(tokens);
 
     let parser = new Parser(tokens);
     let ast = parser.parse_expression();
