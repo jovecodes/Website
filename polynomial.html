@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Jovial Games</title>
+        <link href="css/gruvbox-dark.css" rel="stylesheet">
+        <link href="css/util.css" rel="stylesheet">
+    </head>
+    <body class="bg-hard fg">
+        <header>
+            <h1 class="fg1 centered">Polynomial Simplifier</h1>
+        </header>
+
+        <div class="full-width">
+            <input type="text" id="equation" name="equation" class="equation"/>
+            <input type="number" id="x-value" name="x-value" class="text-input centered"> Value for x (leave blank to find a zero)</input>
+            <br/>
+            <button id="simplify" class="button">Simplify</button>
+
+            <br/>
+            <div class="fg centered" id="results"></div>
+            <br/>
+
+            <br/>
+            <input type="number" id="degree" class="text-input"/>
+            <button id="set-degree" class="button">Generate polynomial of degree</button>
+        </div>
+
+    </body>
+    <script src="polynomial.js"></script>
+</html>
