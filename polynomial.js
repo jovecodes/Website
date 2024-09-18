@@ -186,21 +186,122 @@ function find_zero(test) {
     return {found: found, x: x};
 }
 
-function get_coefficients(ast, parent_op = '+') {
-    if (parent_op != '^' && ast.value != null) {
-        return [ast.value];
-    }
-    if ((parent_op != '*') && ast.var != null) {
-        return [1];
-    }
+function get_coefficients(ast, has_multiplication = false) {
+    has_multiplication |= ast.op == '*';
+
+    if (ast.value != null) return [ast.value];
+    
+    if (!has_multiplication && ast.var != null) return [1];
+    
+    if (ast.op == '^') return get_coefficients(ast.lhs, has_multiplication);
+
     let cs = [];
     if (ast.lhs != null) {
-        cs = cs.concat(get_coefficients(ast.lhs, ast.op));
+        cs = cs.concat(get_coefficients(ast.lhs, has_multiplication));
     }
     if (ast.rhs != null) {
-        cs = cs.concat(get_coefficients(ast.rhs, ast.op));
+        cs = cs.concat(get_coefficients(ast.rhs, has_multiplication));
     }
     return cs;
+}
+
+function get_dividing_polynomial(divisor) {
+    if (divisor < 0) return `(x + ${Math.abs(divisor)})`;
+    else             return `(x - ${Math.abs(divisor)})`;
+}
+
+function synthetic_division(ast, res) {
+    // commence synthetic division
+    let divisor = res.x;
+
+    let html = "";
+
+    html += '<br/><br/>';
+    html += `Division: (${equation.value}) / ${get_dividing_polynomial(divisor)}`;
+
+    html += '<br/><br/>';
+    html += `Synthetic division: <br/>`;
+
+    let coefficients = get_coefficients(ast);
+
+    // Create the table for grid alignment
+    let table = '<table style="border-collapse: collapse;">';
+
+    // First row: original coefficients
+    table += '<tr>';
+    table += `<td rowspan="1">${divisor} |</td>`;  // Divisor on the left, spanning two rows
+
+    for (let i = 0; i < coefficients.length; ++i) {
+        let num = coefficients[i].toString().padStart(3, ' ');
+        table += `<td style="border: 1px solid black; padding: 5px; text-align: center;">${num}</td>`;
+    }
+    table += '</tr>';
+
+    // Second row: remainders and results
+    let remainders = [];
+    table += '<tr>';
+    for (let i = 1; i < coefficients.length; ++i) {
+        remainders.push(coefficients[i - 1] * divisor);
+        coefficients[i] += coefficients[i - 1] * divisor;
+    }
+
+    table += '<td> </td><td> </td>';
+    for (let i = 0; i < remainders.length; ++i) {
+        let remainderNum = remainders[i].toString().padStart(3, ' ');
+        table += `<td style="border: 1px solid black; padding: 5px; text-align: center;">${remainderNum}</td>`;
+    }
+    table += '</tr>';
+
+    // Final row: synthetic division result
+    table += '<tr>';
+    table += '<td> </td>'; // Add another middle column separator
+    for (let i = 0; i < coefficients.length; ++i) {
+        let num = coefficients[i].toString().padStart(3, ' ');
+        table += `<td style="border: 1px solid black; padding: 5px; text-align: center;">${num}</td>`;
+    }
+    table += '</tr>';
+    table += '</table>';
+
+    // Append the table to the results
+    html += table;
+
+    return {html: html, coefficients: coefficients};
+}
+
+function get_degree(ast) {
+    if (ast == null) return 0;
+    if (ast.op == '^') return ast.rhs.value;
+    return Math.max(get_degree(ast.lhs, ast.rhs));
+}
+
+function get_polynomial_for_syn_division(division) {
+    let new_polynomial = "";
+    for (i = division.coefficients.length - 1; i > 0; --i) {
+        if (division.coefficients[i] != 0) {
+            let text = "";
+            if (division.coefficients[i] != 1) {
+                text += division.coefficients[i];
+            }
+            text += "x";
+            if (i != 1) {
+                text += `^${i}`;
+            }
+
+            let j = i - 1;
+            while (j != 0 && division.coefficients[j] === 0) j--;
+
+            console.log(division.coefficients[j]);
+            if (division.coefficients[j] > 0) {
+                text += " + ";
+            } else {
+                text += " - ";
+            }
+
+            new_polynomial += text;
+        }
+    }
+    new_polynomial += division.coefficients[0];
+    return new_polynomial;
 }
 
 function simplify() {
@@ -242,59 +343,11 @@ function simplify() {
     } else {
         let res = find_zero(test);
         if (res.found) {
-            // commence synthetic division
-            let divisor = -res.x;
+            let division = synthetic_division(ast, res);
+            results.innerHTML += division.html;
 
-            results.innerHTML += '<br/><br/>';
-            results.innerHTML += `Division: (${equation.value}) / (x - ${divisor})`;
-
-            results.innerHTML += '<br/><br/>';
-            results.innerHTML += `Synthetic division: <br/>`;
-
-            let coefficients = get_coefficients(ast);
-
-            // Create the table for grid alignment
-            let table = '<table style="border-collapse: collapse;">';
-
-            // First row: original coefficients
-            table += '<tr>';
-            table += `<td rowspan="2">${divisor} |</td>`;  // Divisor on the left, spanning two rows
-
-            for (let i = 0; i < coefficients.length; ++i) {
-                let num = coefficients[i].toString().padStart(3, ' ');
-                table += `<td style="border: 1px solid black; padding: 5px; text-align: center;">${num}</td>`;
-            }
-            table += '</tr>';
-
-            // Second row: remainders and results
-            let remainders = [];
-            table += '<tr>';
-            for (let i = 1; i < coefficients.length; ++i) {
-                remainders.push(coefficients[i - 1] * divisor);
-                coefficients[i] += coefficients[i - 1] * divisor;
-            }
-
-            table += '<td> </td>';
-            for (let i = 1; i < remainders.length; ++i) {
-                let remainderNum = remainders[i].toString().padStart(3, ' ');
-                table += `<td style="border: 1px solid black; padding: 5px; text-align: center;">${remainderNum}</td>`;
-            }
-            table += '</tr>';
-
-            // Final row: synthetic division result
-            table += '<tr>';
-            table += '<td> </td>'; // Add another middle column separator
-            for (let i = 0; i < coefficients.length; ++i) {
-                let num = coefficients[i].toString().padStart(3, ' ');
-                table += `<td style="border: 1px solid black; padding: 5px; text-align: center;">${num}</td>`;
-            }
-            table += '</tr>';
-            table += '</table>';
-
-            // Append the table to the results
-            results.innerHTML += table;
-
-            console.log(coefficients);
+            results.innerHTML += "<br/><br/>";
+            results.innerHTML += `(${get_polynomial_for_syn_division(division)})${get_dividing_polynomial(res.x)}`;
         }
     }
 }
