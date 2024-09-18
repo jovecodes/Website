@@ -146,6 +146,63 @@ function eval_ast(ast, variables) {
     return apply(eval_ast(ast.lhs, variables), ast.op, eval_ast(ast.rhs, variables));
 }
 
+const ATTEMPTS = 100;
+
+function find_zero(test) {
+    let x = 0;
+    let last_value = test(x, false);
+    let step = 1;
+
+    let found = false;
+    let just_switched = false;
+
+    for (let i = 0; i <= ATTEMPTS; ++i) {
+        let new_value = test(x, false);
+        
+        if (new_value === 0) {
+            found = true;
+            test(x, true);
+            break;
+        }
+
+        if (Math.abs(new_value) > Math.abs(last_value)) {
+            step = -step; // getting futher away so we need to switch directions
+            if (just_switched) {
+                step /= 2;
+            }
+            just_switched = true;
+        } else {
+            just_switched = false;
+        }
+
+        last_value = new_value;
+        x += step;
+    }
+
+    if (!found) {
+        results.innerHTML += `Could not a find zero after ${ATTEMPTS} attempts the closest found was (${x}, ${test(x, false)})`;
+    }
+
+    return {found: found, x: x};
+}
+
+function get_coefficients(ast, parent_op = '+') {
+    if (parent_op != '^' && ast.value != null) {
+        return [ast.value];
+    }
+    if ((parent_op != '*') && ast.var != null) {
+        return [1];
+    }
+    let cs = [];
+    if (ast.lhs != null) {
+        cs = cs.concat(get_coefficients(ast.lhs, ast.op));
+    }
+    if (ast.rhs != null) {
+        cs = cs.concat(get_coefficients(ast.rhs, ast.op));
+    }
+    return cs;
+}
+
 function simplify() {
     const equation = document.getElementById("equation")
     const results = document.getElementById("results")
@@ -157,6 +214,7 @@ function simplify() {
 
     let parser = new Parser(tokens);
     let ast = parser.parse_expression();
+    console.log(ast);
 
     let variables = new Map();
 
@@ -175,18 +233,68 @@ function simplify() {
             results.innerHTML += `x = ${val} => ${value}`;
         }
 
-        return value === 0;
+        return value;
     }
 
     const x_val = document.getElementById("x-value");
     if (x_val.value) {
         test(Number(x_val.value), true);
     } else {
-        for (i = -10; i <= 10; ++i) {
-            if (test(i, false)) {
-                test(i, true);
-                break;
+        let res = find_zero(test);
+        if (res.found) {
+            // commence synthetic division
+            let divisor = -res.x;
+
+            results.innerHTML += '<br/><br/>';
+            results.innerHTML += `Division: (${equation.value}) / (x - ${divisor})`;
+
+            results.innerHTML += '<br/><br/>';
+            results.innerHTML += `Synthetic division: <br/>`;
+
+            let coefficients = get_coefficients(ast);
+
+            // Create the table for grid alignment
+            let table = '<table style="border-collapse: collapse;">';
+
+            // First row: original coefficients
+            table += '<tr>';
+            table += `<td rowspan="2">${divisor} |</td>`;  // Divisor on the left, spanning two rows
+
+            for (let i = 0; i < coefficients.length; ++i) {
+                let num = coefficients[i].toString().padStart(3, ' ');
+                table += `<td style="border: 1px solid black; padding: 5px; text-align: center;">${num}</td>`;
             }
+            table += '</tr>';
+
+            // Second row: remainders and results
+            let remainders = [];
+            table += '<tr>';
+            for (let i = 1; i < coefficients.length; ++i) {
+                remainders.push(coefficients[i - 1] * divisor);
+                coefficients[i] += coefficients[i - 1] * divisor;
+            }
+
+            table += '<td> </td>';
+            for (let i = 1; i < remainders.length; ++i) {
+                let remainderNum = remainders[i].toString().padStart(3, ' ');
+                table += `<td style="border: 1px solid black; padding: 5px; text-align: center;">${remainderNum}</td>`;
+            }
+            table += '</tr>';
+
+            // Final row: synthetic division result
+            table += '<tr>';
+            table += '<td> </td>'; // Add another middle column separator
+            for (let i = 0; i < coefficients.length; ++i) {
+                let num = coefficients[i].toString().padStart(3, ' ');
+                table += `<td style="border: 1px solid black; padding: 5px; text-align: center;">${num}</td>`;
+            }
+            table += '</tr>';
+            table += '</table>';
+
+            // Append the table to the results
+            results.innerHTML += table;
+
+            console.log(coefficients);
         }
     }
 }
